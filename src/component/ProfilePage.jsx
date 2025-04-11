@@ -1,25 +1,44 @@
-import React, { useState } from "react";
-import { toast } from "react-toastify";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
+  
   const [profilePic, setProfilePic] = useState(null);
-  const [form, setForm] = useState({
-    firstName: "Maria",
-    lastName: "Boone",
-    email: "maria@site.com",
-    currentPassword: "",
-    newPassword: "",
-    phone: "",
-    phoneType: "Mobile",
-    gender: "Female",
-    bio: "",
+  const [profileDetails, setProfileDetails] = useState({
+    name: "",
+    username: "",
+    email: "",
+    branch: "",
+    hobbies: "",
+    skills: "",
+    year: "",
+    description: "",
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const response = await fetch('http://localhost:5005/api/profile');
+        if (!response.ok) throw new Error('Failed to fetch profile');
+        const data = await response.json();
+        setProfileDetails(data);
+        if (data.profilePic) setProfilePic(data.profilePic);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+    fetchProfileData();
+  }, []);
+
+  const handleInputChange = (e) => {
+    setProfileDetails({
+      ...profileDetails,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleProfilePicChange = (e) => {
@@ -28,164 +47,94 @@ const ProfilePage = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePic(reader.result);
-        toast.success("Profile photo uploaded!");
+        toast.success("Profile photo uploaded successfully!");
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success("Profile updated successfully!");
-    console.log("Form Data:", form);
+    const formData = new FormData();
+
+    Object.entries(profileDetails).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    if (profilePic) {
+      formData.append("profilePic", profilePic);
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/profile", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Failed to save profile");
+      toast.success("Profile saved successfully!");
+    } catch (error) {
+      toast.error("Error saving profile. Please try again later.");
+      console.error(error);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 to-purple-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-all duration-300">
       <Navbar />
-      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl w-full max-w-5xl grid md:grid-cols-2 overflow-hidden">
-          {/* Left: Form */}
-          <div className="p-8 md:p-12">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Edit Profile</h2>
+      <div className="max-w-5xl mx-auto p-6 mt-10 bg-white dark:bg-gray-900 shadow-2xl rounded-3xl">
+        <h1 className="text-3xl font-bold text-center text-gray-800 dark:text-white mb-8">Your Profile</h1>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-              {/* Profile Upload */}
-              <div className="flex items-center gap-4">
-                <label htmlFor="photo-upload" className="cursor-pointer">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border dark:border-gray-600 shadow">
-                    {profilePic ? (
-                      <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-gray-400 dark:text-gray-300 text-xl">+</span>
-                    )}
+        <div className="flex flex-col lg:flex-row gap-10">
+          {/* Left - Profile Pic Upload */}
+          <div className="flex flex-col items-center lg:w-1/3">
+            <label htmlFor="profile-pic-upload" className="cursor-pointer">
+              <div className="w-44 h-44 rounded-full overflow-hidden shadow-lg border-4 border-pink-400 hover:scale-105 transition">
+                {profilePic ? (
+                  <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300">
+                    Upload Profile Pic
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id="photo-upload"
-                    onChange={handleProfilePicChange}
-                    className="hidden"
-                  />
+                )}
+              </div>
+            </label>
+            <input
+              id="profile-pic-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePicChange}
+              className="hidden"
+            />
+            <p className="text-sm mt-3 text-gray-500 dark:text-gray-300">Click to upload/change photo</p>
+          </div>
+
+          {/* Right - Form Inputs */}
+          <form onSubmit={handleSubmit} className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {Object.keys(profileDetails).map((key, idx) => (
+              <div key={idx} className="flex flex-col">
+                <label className="text-gray-700 dark:text-gray-200 font-medium mb-1">
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
                 </label>
-                <span className="text-gray-500 dark:text-gray-300">Upload Profile Photo</span>
-              </div>
-
-              {/* Names */}
-              <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
-                  name="firstName"
-                  value={form.firstName}
-                  onChange={handleChange}
-                  placeholder="First Name"
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <input
-                  type="text"
-                  name="lastName"
-                  value={form.lastName}
-                  onChange={handleChange}
-                  placeholder="Last Name"
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  name={key}
+                  value={profileDetails[key]}
+                  onChange={handleInputChange}
+                  className="p-3 rounded-xl border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white"
                 />
               </div>
+            ))}
 
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="Email Address"
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-              />
-
-              {/* Password */}
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="password"
-                  name="currentPassword"
-                  value={form.currentPassword}
-                  onChange={handleChange}
-                  placeholder="Current Password"
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <input
-                  type="password"
-                  name="newPassword"
-                  value={form.newPassword}
-                  onChange={handleChange}
-                  placeholder="New Password"
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-              </div>
-
-              {/* Phone */}
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="tel"
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  placeholder="Phone Number"
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <select
-                  name="phoneType"
-                  value={form.phoneType}
-                  onChange={handleChange}
-                  className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                >
-                  <option value="Mobile">Mobile</option>
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                </select>
-              </div>
-
-              {/* Gender */}
-              <div className="flex items-center gap-4 text-gray-700 dark:text-gray-200">
-                {["Male", "Female", "Other"].map((g) => (
-                  <label key={g} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="gender"
-                      value={g}
-                      checked={form.gender === g}
-                      onChange={handleChange}
-                      className="accent-pink-500"
-                    />
-                    {g}
-                  </label>
-                ))}
-              </div>
-
-              {/* Bio */}
-              <textarea
-                name="bio"
-                value={form.bio}
-                onChange={handleChange}
-                placeholder="Your bio..."
-                rows="3"
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-pink-400"
-              />
-
+            <div className="col-span-full">
               <button
                 type="submit"
-                className="w-full bg-pink-500 hover:bg-pink-600 text-white font-medium py-2 rounded-lg transition-all duration-300"
+                className="w-full py-3 mt-4 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl transition-all shadow-lg"
               >
-                Save Changes
+                Save Profile
               </button>
-            </form>
-          </div>
-
-          {/* Right: Illustration */}
-          <div className="hidden md:flex items-center justify-center bg-pink-50 dark:bg-gray-800 p-6">
-            <img
-              src="https://cdn-icons-png.flaticon.com/512/5818/5818321.png"
-              alt="Profile Illustration"
-              className="w-80 h-80"
-            />
-          </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
